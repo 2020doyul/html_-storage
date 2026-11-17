@@ -1,0 +1,1714 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>우리만의 증강체스 - 3차</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, "Malgun Gothic", sans-serif;
+      background: #20242b;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+    }
+
+    .game {
+      width: min(96vw, 720px);
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+    }
+
+    .subtitle {
+      margin: 0 0 18px;
+      color: #cbd2dc;
+      font-size: 15px;
+    }
+
+    .info {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    #turn {
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: #333a45;
+      font-weight: bold;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 9px 14px;
+      background: #4f8cff;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover { filter: brightness(1.08); }
+
+    .board-wrap {
+      width: min(92vw, 640px);
+      margin: 0 auto;
+      aspect-ratio: 1 / 1;
+    }
+
+    #board {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      grid-template-rows: repeat(8, minmax(0, 1fr));
+      border: 6px solid #11151b;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 12px 30px rgba(0,0,0,.35);
+    }
+
+    .square {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+      cursor: pointer;
+    }
+
+    .light { background: #e9edf2; }
+    .dark { background: #7292b4; }
+
+    .square.selected {
+      outline: 5px solid #ffd54a;
+      outline-offset: -5px;
+    }
+
+    .square.move::after {
+      content: "";
+      width: 21%;
+      aspect-ratio: 1 / 1;
+      border-radius: 50%;
+      background: rgba(40, 40, 40, .38);
+      position: absolute;
+      z-index: 1;
+    }
+
+    .square.capture {
+      box-shadow: inset 0 0 0 6px rgba(255, 82, 82, .75);
+    }
+
+    /* 체크된 킹의 칸 */
+    .square.check {
+      box-shadow:
+        inset 0 0 0 6px rgba(230, 35, 35, .95),
+        inset 0 0 22px rgba(255, 60, 60, .55);
+    }
+
+    .piece-img {
+      width: 84%;
+      height: 84%;
+      object-fit: contain;
+      display: block;
+      position: relative;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    #message {
+      min-height: 26px;
+      margin: 14px 0 0;
+      font-weight: bold;
+      color: #ffd85a;
+    }
+
+    .help {
+      margin-top: 12px;
+      color: #aeb7c4;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .credit {
+      margin-top: 14px;
+      color: #7f8997;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .credit a {
+      color: #aeb7c4;
+    }
+
+    /* 프로모션 선택창 */
+    .promotion-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.62);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      z-index: 100;
+    }
+
+    .promotion-overlay.show {
+      display: flex;
+    }
+
+    .promotion-box {
+      width: min(92vw, 430px);
+      background: #2b313a;
+      border: 1px solid #515b69;
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 20px 50px rgba(0,0,0,.5);
+    }
+
+    .promotion-box h2 {
+      margin: 0 0 8px;
+    }
+
+    .promotion-box p {
+      color: #cbd2dc;
+      margin: 0 0 18px;
+    }
+
+    .promotion-choices {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .promotion-choices button {
+      background: #3c4552;
+      padding: 10px 4px;
+      min-height: 90px;
+      font-size: 13px;
+    }
+
+    .promotion-choices button:hover {
+      background: #4f5a69;
+    }
+
+    .promotion-choices img {
+      display: block;
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 5px;
+    }
+  
+    .result-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.70);
+      display: none; justify-content: center; align-items: center;
+      z-index: 200; opacity: 0;
+    }
+    .result-overlay.show { display: flex; animation: resultFade .3s ease forwards; }
+    .result-box {
+      width: min(88vw, 440px); padding: 34px 28px; border-radius: 22px;
+      background: linear-gradient(145deg,#303844,#1f242c);
+      border: 2px solid rgba(255,255,255,.14); box-shadow: 0 25px 70px rgba(0,0,0,.55);
+      text-align: center; transform: scale(.7); opacity: 0;
+      animation: resultPop .55s cubic-bezier(.18,.89,.32,1.28) .08s forwards;
+    }
+    .result-icon { font-size: 58px; line-height: 1; margin-bottom: 12px; animation: resultBounce .75s ease .35s both; }
+    .result-title { margin: 0; font-size: clamp(30px,7vw,46px); font-weight: 900; }
+    .result-subtitle { margin: 12px 0 22px; color: #c9d1dc; font-size: 16px; }
+    .result-box button { padding: 11px 20px; font-size: 15px; }
+    @keyframes resultFade { from{opacity:0} to{opacity:1} }
+    @keyframes resultPop { from{transform:scale(.7);opacity:0} to{transform:scale(1);opacity:1} }
+    @keyframes resultBounce { 0%,100%{transform:translateY(0) scale(1)} 35%{transform:translateY(-8px) scale(1.08)} 65%{transform:translateY(2px) scale(.98)} }
+
+  
+    .mission-panel{margin:14px auto 12px;width:min(92vw,640px);padding:14px 16px;border-radius:14px;background:#2b313b;border:1px solid #454d59;text-align:left}.mission-title{font-weight:800;margin-bottom:7px}#missionText{line-height:1.5;font-weight:700}#missionStatus{margin-top:6px;color:#aeb8c6;font-size:13px}.mission-toggle{margin-top:9px;background:#555f6d;padding:7px 11px;font-size:13px}
+
+    .main-menu {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #20242b;
+      padding: 24px;
+    }
+    .menu-card {
+      width: min(92vw, 520px);
+      padding: 34px 28px;
+      border-radius: 22px;
+      background: #2b313b;
+      border: 1px solid #48515e;
+      box-shadow: 0 18px 50px rgba(0,0,0,.35);
+      text-align: center;
+    }
+    .menu-card h1 { font-size: 38px; margin-bottom: 8px; }
+    .menu-card p { color: #cbd2dc; margin: 8px 0 24px; }
+    .menu-buttons { display: grid; gap: 12px; }
+    .menu-buttons button { font-size: 18px; padding: 15px; }
+    .mode-panel { margin-top: 18px; }
+    .mode-panel.hidden { display: none; }
+    .difficulty-title { margin: 0 0 10px; color: #dfe5ed; font-weight: bold; }
+    .difficulty-buttons { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+    .difficulty-buttons button { font-size: 15px; padding: 12px 8px; }
+    .menu-note { font-size: 12px; color: #9da8b6; margin-top: 18px; }
+    .back-menu { background: #555f6d; }
+    .ai-badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: #5b6573;
+      font-size: 11px;
+      vertical-align: middle;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div id="mainMenu" class="main-menu">
+    <div class="menu-card">
+      <h1>♟ 우리만의 증강체스</h1>
+      <p>기본 체스 + 비밀 미션</p>
+
+      <div class="menu-buttons">
+        <button id="friendlyBtn">🤝 친선전</button>
+        <button id="aiBtn">🤖 AI와 대전</button>
+      </div>
+
+      <div id="difficultyPanel" class="mode-panel hidden">
+        <div class="difficulty-title">AI 난이도를 선택하세요</div>
+        <div class="difficulty-buttons">
+          <button data-difficulty="easy">쉬움</button>
+          <button data-difficulty="normal">보통</button>
+          <button data-difficulty="hard">어려움</button>
+        </div>
+        <p class="menu-note">AI의 백/흑 색과 비밀 미션은 매 게임 무작위로 결정됩니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <main class="game">
+    <h1>우리만의 증강체스</h1>
+    <p class="subtitle">기본 체스 완성 · 체크 & 특수 규칙 & 무승부 판정</p>
+
+    <div class="info">
+      <div id="turn">백의 턴</div>
+      <button id="mainMenuBtn" class="back-menu">메인 메뉴</button>
+      <button id="reset">게임 초기화</button>
+    </div>
+
+    <div class="mission-panel"><div class="mission-title">🔒 현재 차례의 비밀 미션</div><div id="missionText">미션 준비 중...</div><div id="missionStatus">현재 차례 플레이어만 확인하세요.</div><button id="missionToggle" class="mission-toggle">미션 숨기기</button></div>
+    <div class="board-wrap">
+      <div id="board"></div>
+    </div>
+
+    <div id="message"></div>
+
+    <div class="help">
+      말을 클릭한 뒤 이동할 칸을 클릭하세요.<br />
+      🔴 빨간 테두리 = 현재 체크 상태 · 캐슬링도 일반 이동 칸과 똑같이 표시
+    </div>
+
+    <div class="credit">
+      체스 말 이미지: Wikimedia Commons, Cburnett의
+      <a href="https://commons.wikimedia.org/wiki/Template:SVG_chess_pieces" target="_blank" rel="noopener noreferrer">
+        SVG chess pieces
+      </a>
+      · 원본 파일의 라이선스 조건 적용
+    </div>
+  </main>
+
+
+  <div id="resultOverlay" class="result-overlay">
+    <div class="result-box">
+      <div id="resultIcon" class="result-icon">♕</div>
+      <h2 id="resultTitle" class="result-title">백 승리!</h2>
+      <p id="resultSubtitle" class="result-subtitle">체크메이트</p>
+      <button id="resultReset">다시 하기</button>
+    </div>
+  </div>
+
+  <div id="promotionOverlay" class="promotion-overlay">
+    <div class="promotion-box">
+      <h2>폰 승급!</h2>
+      <p>승급할 기물을 골라주세요.</p>
+      <div id="promotionChoices" class="promotion-choices"></div>
+    </div>
+  </div>
+
+  <script>
+    /* 외부 사이트/유니코드 문자에 의존하지 않는 내장 SVG 기물 */
+    function makePieceImage(color, type) {
+      const white = color === "w";
+      const fill = white ? "#fff9e9" : "#252a33";
+      const stroke = white ? "#252a33" : "#f5f0df";
+      const base = `fill="${fill}" stroke="${stroke}" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"`;
+      const line = `fill="none" stroke="${stroke}" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"`;
+      const shapes = {
+        /* King: cross, clearly separate round head, shoulders and broad base */
+        k: `<path ${line} d="M50 4 V22 M40 13 H60"/><circle ${base} cx="50" cy="34" r="11"/><path ${base} d="M39 46 Q31 49 29 60 L23 77 H77 L71 60 Q69 49 61 46 Z"/><path ${line} d="M34 60 Q50 67 66 60"/><path ${base} d="M20 78 H80 L87 91 H13 Z M10 92 H90 V98 H10 Z"/>`,
+        /* Queen: five distinct crown points, no missing top/head */
+        q: `<path ${base} d="M17 34 L29 55 L35 25 L50 45 L65 25 L71 55 L83 34 L75 72 H25 Z"/><circle ${base} cx="17" cy="29" r="5.5"/><circle ${base} cx="35" cy="20" r="5.5"/><circle ${base} cx="50" cy="39" r="5.5"/><circle ${base} cx="65" cy="20" r="5.5"/><circle ${base} cx="83" cy="29" r="5.5"/><path ${base} d="M25 73 H75 L82 89 H18 Z M12 91 H88 V98 H12 Z"/>`,
+        /* Rook: castle crenellations and tower */
+        r: `<path ${base} d="M21 12 H34 V25 H43 V12 H57 V25 H66 V12 H79 V39 L72 45 L77 78 H23 L28 45 L21 39 Z"/><path ${line} d="M29 48 H71 M27 72 H73"/><path ${base} d="M17 80 H83 L90 93 H10 Z M9 94 H91 V98 H9 Z"/>`,
+        /* Bishop: pointed mitre, central slit, rounded shoulders */
+        b: `<path ${base} d="M50 9 C44 20 34 26 34 37 C34 44 39 49 44 52 C34 58 29 68 28 78 H72 C71 68 66 58 56 52 C61 49 66 44 66 37 C66 26 56 20 50 9 Z"/><path ${line} d="M57 28 L43 43"/><circle ${base} cx="50" cy="12" r="3.5"/><path ${base} d="M22 80 H78 L86 93 H14 Z M11 94 H89 V98 H11 Z"/>`,
+        /* Knight: compact, centered chess-horse silhouette; keep all features inside its own square */
+        n: `<path ${base} d="M22 78 L27 65 L25 56 Q24 49 31 43 L40 36 L38 20 L49 30 L55 17 L62 34 Q71 38 74 47 L82 52 L78 60 L68 60 L65 73 L76 79 Z"/><path ${base} d="M38 20 L49 30 L43 38 L35 32 Z"/><path ${base} d="M55 17 L62 34 L55 35 L50 27 Z"/><path ${line} d="M37 42 Q44 45 50 41"/><circle cx="64" cy="41" r="2.7" fill="${stroke}"/><path ${line} d="M75 54 L80 54"/><path ${base} d="M24 81 H76 L84 92 H16 Z M14 94 H86 V98 H14 Z"/>`,
+        /* Pawn: round head and tapered body */
+        p: `<circle ${base} cx="50" cy="25" r="13"/><path ${base} d="M42 40 H58 L62 52 L70 76 H30 L38 52 Z"/><path ${line} d="M37 57 H63"/><path ${base} d="M23 78 H77 L85 92 H15 Z M11 93 H89 V98 H11 Z"/>`
+      };
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><title>${white ? "White" : "Black"} ${type}</title>${shapes[type]}</svg>`;
+      return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    }
+    const pieceImages = { w: {}, b: {} };
+    for (const color of ["w", "b"]) {
+      for (const type of ["k", "q", "r", "b", "n", "p"]) {
+        pieceImages[color][type] = makePieceImage(color, type);
+      }
+    }
+
+    const names = {
+      q: "퀸",
+      r: "룩",
+      b: "비숍",
+      n: "나이트"
+    };
+
+    const boardEl = document.getElementById("board");
+    const turnEl = document.getElementById("turn");
+    const messageEl = document.getElementById("message");
+    const resetBtn = document.getElementById("reset");
+    const promotionOverlay = document.getElementById("promotionOverlay");
+    const promotionChoices = document.getElementById("promotionChoices");
+    const resultOverlay = document.getElementById("resultOverlay");
+    const resultIcon = document.getElementById("resultIcon");
+    const resultTitle = document.getElementById("resultTitle");
+    const resultSubtitle = document.getElementById("resultSubtitle");
+    const resultReset = document.getElementById("resultReset");
+    const missionTextEl=document.getElementById("missionText"), missionStatusEl=document.getElementById("missionStatus"), missionToggleEl=document.getElementById("missionToggle");
+
+    let board = createInitialBoard();
+    let currentTurn = "w";
+    let selected = null;
+    let legalMoves = [];
+    let gameOver = false;
+    let enPassantTarget = null;
+    let positionCounts = new Map();
+    let whiteMission=null, blackMission=null, missionVisible=true, moveHistory=[], kingCaptures={w:0,b:0}, consecutiveChecks={w:0,b:0}, queenSacrificePly=null, queenSacrificeOwner=null, trashOpeningDone=false;
+
+    // 승급 대기 중인 이동 정보
+    let pendingPromotion = null;
+    let gameMode = "menu";       // menu / friendly / ai
+    let aiColor = null;           // AI 대전 시작마다 백/흑 무작위 배정
+    let aiDifficulty = "normal";
+    let aiThinking = false;
+    let choosingAIFirstMove = false;
+
+
+    function createInitialBoard() {
+      const b = Array.from({ length: 8 }, () => Array(8).fill(null));
+      const back = ["r", "n", "b", "q", "k", "b", "n", "r"];
+
+      for (let c = 0; c < 8; c++) {
+        b[0][c] = { color: "b", type: back[c], hasMoved: false, startRow: 0 };
+        b[1][c] = { color: "b", type: "p", hasMoved: false, startRow: 1 };
+        b[6][c] = { color: "w", type: "p", hasMoved: false, startRow: 6 };
+        b[7][c] = { color: "w", type: back[c], hasMoved: false, startRow: 7 };
+      }
+
+      return b;
+    }
+
+    function cloneBoard(b) {
+      return b.map(row => row.map(piece => piece ? { ...piece } : null));
+    }
+
+    function opposite(color) {
+      return color === "w" ? "b" : "w";
+    }
+
+    function inside(r, c) {
+      return r >= 0 && r < 8 && c >= 0 && c < 8;
+    }
+
+    function render() {
+      boardEl.innerHTML = "";
+
+      const whiteInCheck = isKingInCheck(board, "w");
+      const blackInCheck = isKingInCheck(board, "b");
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const square = document.createElement("div");
+          square.className =
+            "square " + ((r + c) % 2 === 0 ? "light" : "dark");
+          square.title = `${"abcdefgh"[c]}${8-r}`;
+
+          if (selected && selected.r === r && selected.c === c) {
+            square.classList.add("selected");
+          }
+
+          const move = legalMoves.find(m => m.r === r && m.c === c);
+          if (move) {
+            if (board[r][c] || move.enPassant) {
+              square.classList.add("capture");
+            } else {
+              square.classList.add("move");
+            }
+
+          }
+
+          const piece = board[r][c];
+
+          // 체크 중인 킹에 빨간 테두리
+          if (
+            piece &&
+            piece.type === "k" &&
+            ((piece.color === "w" && whiteInCheck) ||
+             (piece.color === "b" && blackInCheck))
+          ) {
+            square.classList.add("check");
+          }
+
+          if (piece) {
+            const img = document.createElement("img");
+            img.className = "piece-img";
+            img.src = pieceImages[piece.color][piece.type];
+            img.alt = `${piece.color === "w" ? "백" : "흑"} ${piece.type}`;
+            img.draggable = false;
+            square.appendChild(img);
+          }
+
+          square.addEventListener("click", () => handleSquareClick(r, c));
+          boardEl.appendChild(square);
+        }
+      }
+
+      const inCheck = isKingInCheck(board, currentTurn);
+
+      turnEl.textContent =
+        gameOver ? "게임 종료" :
+        `${currentTurn === "w" ? "백(AI)" : "흑(나)"}의 턴${inCheck ? " · 체크!" : ""}`;
+      updateMissionPanel();
+    }
+
+    function canSelectTurnPiece(piece) {
+      return !!piece && piece.color === currentTurn;
+    }
+
+    function handleSquareClick(r, c) {
+      if (gameOver || pendingPromotion) return;
+      // AI 대전에서 백(AI)의 턴에는 사용자가 기물을 선택하거나 대신 둘 수 없음.
+      if (gameMode === "ai" && currentTurn === aiColor) return;
+
+      const clickedPiece = board[r][c];
+
+      if (trashOpeningActive()) {
+        const expected = getTrashOpeningExpected();
+
+        if (selected) {
+          if (!isTrashExpectedMove(selected.r, selected.c, r, c)) {
+            messageEl.textContent = "🔒 Trash 오프닝에서는 지정된 수만 둘 수 있습니다!";
+            render();
+            return;
+          }
+
+          const forcedMove = legalMoves.find(m => m.r === r && m.c === c);
+          if (forcedMove) {
+            makeMove(selected.r, selected.c, r, c, forcedMove);
+          } else {
+            messageEl.textContent = "⚠ Trash 오프닝의 지정 수가 현재 포지션에서 합법적이지 않습니다.";
+            selected = null;
+            legalMoves = [];
+            render();
+          }
+          return;
+        }
+
+        if (
+          clickedPiece &&
+          canSelectTurnPiece(clickedPiece) &&
+          expected &&
+          expected.fromR === r &&
+          expected.fromC === c
+        ) {
+          selectPiece(r, c);
+        } else {
+          messageEl.textContent = `🔒 ${expected ? expected.label : "Trash 오프닝"} 강제 수입니다!`;
+          render();
+        }
+        return;
+      }
+
+      if (selected) {
+        const chosenMove = legalMoves.find(m => m.r === r && m.c === c);
+
+        if (chosenMove) {
+          makeMove(selected.r, selected.c, r, c, chosenMove);
+          return;
+        }
+
+        if (clickedPiece && canSelectTurnPiece(clickedPiece)) {
+          selectPiece(r, c);
+          return;
+        }
+
+        selected = null;
+        legalMoves = [];
+        render();
+        return;
+      }
+
+      if (clickedPiece && canSelectTurnPiece(clickedPiece)) {
+        selectPiece(r, c);
+      }
+    }
+
+    function selectPiece(r, c) {
+      if (trashOpeningActive()) {
+        const expected = getTrashOpeningExpected();
+        if (!expected || expected.fromR !== r || expected.fromC !== c) {
+          messageEl.textContent = `🔒 ${expected ? expected.label : "Trash 오프닝"} 강제 수입니다!`;
+          render();
+          return;
+        }
+      }
+
+      selected = { r, c };
+      legalMoves = getLegalMoves(board, r, c, true);
+
+      if (trashOpeningActive()) {
+        const expected = getTrashOpeningExpected();
+        legalMoves = legalMoves.filter(m => m.r === expected.toR && m.c === expected.toC);
+      }
+
+      render();
+    }
+
+    function makeMove(fromR, fromC, toR, toC, moveInfo) {
+      if (trashOpeningActive() && !isTrashExpectedMove(fromR, fromC, toR, toC)) {
+        messageEl.textContent = "🔒 Trash 오프닝에서는 지정된 수만 둘 수 있습니다!";
+        render();
+        return;
+      }
+
+      const movingPiece = board[fromR][fromC];
+      if (!movingPiece || movingPiece.color !== currentTurn) return;
+      const movingColor = movingPiece.color;
+      const targetPiece = board[toR][toC];
+      const capturedPiece = moveInfo.enPassant ? board[fromR][toC] : targetPiece;
+
+      // 앙파상: 목적지가 비어 있는 대각선 이동이면 상대 폰 제거
+      if (moveInfo.enPassant) {
+        const capturedPawnR = fromR;
+        const capturedPawnC = toC;
+        board[capturedPawnR][capturedPawnC] = null;
+      }
+
+      board[toR][toC] = movingPiece;
+      board[fromR][fromC] = null;
+      movingPiece.hasMoved = true;
+
+      // 캐슬링: 킹이 두 칸 이동하면 해당 룩도 이동
+      if (moveInfo.castle) {
+        const rookFromC = toC > fromC ? 7 : 0;
+        const rookToC = toC > fromC ? 5 : 3;
+        const rook = board[toR][rookFromC];
+
+        if (rook && rook.type === "r") {
+          board[toR][rookToC] = rook;
+          board[toR][rookFromC] = null;
+          rook.hasMoved = true;
+        }
+      }
+
+      // 다음 턴의 앙파상 대상: 방금 두 칸 전진한 폰
+      enPassantTarget = null;
+      if (
+        movingPiece.type === "p" &&
+        Math.abs(toR - fromR) === 2
+      ) {
+        enPassantTarget = {
+          r: (toR + fromR) / 2,
+          c: fromC
+        };
+      }
+
+      selected = null;
+      legalMoves = [];
+
+      let notation = `${String.fromCharCode(97+fromC)}${8-fromR}${capturedPiece?'x':'-'}${String.fromCharCode(97+toC)}${8-toR}`;
+      if (moveInfo.enPassant) notation += ' e.p.';
+      moveHistory.push(notation);
+
+      // Mission 1: remember exactly whose queen was sacrificed.
+      if (capturedPiece && capturedPiece.type === 'q') {
+        queenSacrificePly = moveHistory.length;
+        queenSacrificeOwner = capturedPiece.color;
+      }
+
+      if (movingPiece.type === 'k' && capturedPiece) {
+        kingCaptures[movingColor]++;
+      }
+
+      // Mission 11: only a non-checking reply resets the received-check streak.
+      const nextCheck = isKingInCheck(board, opposite(movingColor));
+      if (nextCheck) {
+        consecutiveChecks[opposite(movingColor)]++;
+      } else {
+        consecutiveChecks[opposite(movingColor)] = 0;
+      }
+
+      trashOpeningDone =
+        moveHistory.length >= TRASH_OPENING.length &&
+        moveHistory.slice(0, TRASH_OPENING.length).join('|') ===
+          'h2-h4|e7-e5|h1-h3|f8-c5|h3-e3|c5xe3';
+
+      // 프로모션
+      if (movingPiece.type === "p" && (toR === 0 || toR === 7)) {
+        if (gameMode === "ai" && movingColor === aiColor) {
+          movingPiece.type = "q";
+        } else {
+          pendingPromotion = { r: toR, c: toC, color: movingPiece.color };
+          showPromotionChoices(movingPiece.color);
+          render();
+          return;
+        }
+      }
+
+      if(checkMissions(movingColor,{movingPiece,capturedPiece,enPassant:!!moveInfo.enPassant,toR,checkmate:false})) return;
+      finishTurn(targetPiece);
+    }
+
+
+    const SECRET_MISSIONS = [
+      { id:1, text:"퀸을 던진 후, 3수 이내에 상대 킹을 체크하면 승리" },
+      { id:2, text:"앙파상으로 말을 잡으면 즉시 승리" },
+      { id:3, text:"내 킹이 상대편 시작 랭크에 도착하면 즉시 승리" },
+      { id:4, text:"상대 비숍을 모두 잡으면 승리" },
+      { id:5, text:"내 비숍이 모두 잡히면 즉시 패배" },
+      { id:6, text:"내 나이트가 하나라도 잡히면 즉시 패배" },
+      { id:7, text:"킹을 제외한 내 모든 기물이 잡히면 승리" },
+      { id:8, text:"내 킹이 체크를 당하면 즉시 패배" },
+      { id:9, text:"Trash 오프닝 [1.h4 e5 2.Rh3 Bc5 3.Re3 Bxe3] 후 체크메이트하면 승리" },
+      { id:10, text:"내 킹으로 상대 기물을 5개 잡으면 승리" },
+      { id:11, text:"내 킹이 3번 연속 체크를 당하면 승리" },
+      { id:12, text:"내 폰 4개가 각각 시작 지점에서 3칸 이상 전진하면 승리" }
+    ];
+
+    function missionFor(color) {
+      return color === "w" ? whiteMission : blackMission;
+    }
+
+    const TRASH_OPENING = [
+      { fromR: 6, fromC: 7, toR: 4, toC: 7, label: "1. h4" },
+      { fromR: 1, fromC: 4, toR: 3, toC: 4, label: "1... e5" },
+      { fromR: 7, fromC: 7, toR: 5, toC: 7, label: "2. Rh3" },
+      { fromR: 0, fromC: 5, toR: 3, toC: 2, label: "2... Bc5" },
+      { fromR: 5, fromC: 7, toR: 5, toC: 4, label: "3. Re3" },
+      { fromR: 3, fromC: 2, toR: 5, toC: 4, label: "3... Bxe3" }
+    ];
+
+    function trashOpeningActive() {
+      return !!(
+        (whiteMission && whiteMission.id === 9) ||
+        (blackMission && blackMission.id === 9)
+      ) && moveHistory.length < TRASH_OPENING.length;
+    }
+
+    function getTrashOpeningExpected() {
+      return trashOpeningActive() ? TRASH_OPENING[moveHistory.length] : null;
+    }
+
+    function isTrashExpectedMove(fromR, fromC, toR, toC) {
+      const expected = getTrashOpeningExpected();
+      return !!expected &&
+        expected.fromR === fromR && expected.fromC === fromC &&
+        expected.toR === toR && expected.toC === toC;
+    }
+
+    function trashOpeningStatus() {
+      const expected = getTrashOpeningExpected();
+      return expected ? `🔒 Trash 오프닝 강제 수 · ${expected.label}` : "";
+    }
+
+    function updateMissionPanel() {
+      const m = missionFor(currentTurn);
+      if (!m) {
+        missionTextEl.textContent = "미션 준비 중...";
+        return;
+      }
+
+      const side = currentTurn === "w" ? "백" : "흑";
+
+      if (gameMode === "ai" && currentTurn === aiColor) {
+        missionTextEl.textContent = "🔒 AI의 비밀 미션";
+        missionStatusEl.textContent = "AI의 미션은 공개되지 않습니다.";
+        missionToggleEl.style.display = "none";
+        return;
+      }
+
+      missionToggleEl.style.display = "";
+      missionTextEl.textContent = missionVisible
+        ? `【${side}의 비밀 미션】 ${m.text}`
+        : "🔒 미션이 숨겨져 있습니다.";
+      missionStatusEl.textContent = `${side}의 턴 · 미션은 상대에게 공개하지 마세요!`;
+      missionToggleEl.textContent = missionVisible ? "미션 숨기기" : "미션 보기";
+
+      if (trashOpeningActive()) {
+        missionStatusEl.textContent = trashOpeningStatus();
+      }
+    }
+
+    function pickMissions() {
+      const a = Math.floor(Math.random() * SECRET_MISSIONS.length);
+      let b = Math.floor(Math.random() * SECRET_MISSIONS.length);
+      while (b === a) b = Math.floor(Math.random() * SECRET_MISSIONS.length);
+      whiteMission = SECRET_MISSIONS[a];
+      blackMission = SECRET_MISSIONS[b];
+      missionVisible = true;
+      updateMissionPanel();
+    }
+
+    function missionWin(color, mission) {
+      gameOver = true;
+      const side = color === "w" ? "백" : "흑";
+      messageEl.textContent = `🎯 ${side}의 비밀 미션 성공!`;
+      render();
+      showGameResult(`${side} 승리!`, `비밀 미션 성공 · ${mission.text}`, "🎯");
+    }
+
+    function missionLose(color, mission) {
+      gameOver = true;
+      const side = color === "w" ? "백" : "흑";
+      const winner = opposite(color) === "w" ? "백" : "흑";
+      messageEl.textContent = `💥 ${side}의 비밀 미션 실패!`;
+      render();
+      showGameResult(`${winner} 승리!`, `${side}의 비밀 미션 실패 · ${mission.text}`, "💥");
+    }
+
+    function countPieces(color, type) {
+      return board.flat().filter(p => p && p.color === color && p.type === type).length;
+    }
+
+    function checkMissions(movingColor, info) {
+      const opponent = opposite(movingColor);
+
+      // 2. En passant -> immediate win.
+      if (info.enPassant) {
+        const m = missionFor(movingColor);
+        if (m && m.id === 2) {
+          missionWin(movingColor, m);
+          return true;
+        }
+      }
+
+      // 3. King reaches the opponent's starting rank.
+      if (info.movingPiece.type === "k") {
+        const m = missionFor(movingColor);
+        if (
+          m && m.id === 3 &&
+          ((movingColor === "w" && info.toR === 0) ||
+           (movingColor === "b" && info.toR === 7))
+        ) {
+          missionWin(movingColor, m);
+          return true;
+        }
+      }
+
+      // 4. All opponent bishops captured.
+      for (const owner of [movingColor, opponent]) {
+        const m = missionFor(owner);
+        if (m && m.id === 4 && countPieces(opposite(owner), "b") === 0) {
+          missionWin(owner, m);
+          return true;
+        }
+      }
+
+      // 5. All own bishops captured -> loss.
+      for (const owner of [movingColor, opponent]) {
+        const m = missionFor(owner);
+        if (m && m.id === 5 && countPieces(owner, "b") === 0) {
+          missionLose(owner, m);
+          return true;
+        }
+      }
+
+      // 6. Any own knight captured -> loss.
+      if (info.capturedPiece && info.capturedPiece.type === "n") {
+        const owner = info.capturedPiece.color;
+        const m = missionFor(owner);
+        if (m && m.id === 6) {
+          missionLose(owner, m);
+          return true;
+        }
+      }
+
+      // 7. All non-king pieces captured.
+      for (const owner of [movingColor, opponent]) {
+        const m = missionFor(owner);
+        if (m && m.id === 7) {
+          const remaining = board.flat().filter(
+            p => p && p.color === owner && p.type !== "k"
+          ).length;
+          if (remaining === 0) {
+            missionWin(owner, m);
+            return true;
+          }
+        }
+      }
+
+      // 8. Owner is in check -> loss.
+      for (const owner of [movingColor, opponent]) {
+        const m = missionFor(owner);
+        if (m && m.id === 8 && isKingInCheck(board, owner)) {
+          missionLose(owner, m);
+          return true;
+        }
+      }
+
+      // 10. King has captured five enemy pieces.
+      if (kingCaptures[movingColor] >= 5) {
+        const m = missionFor(movingColor);
+        if (m && m.id === 10) {
+          missionWin(movingColor, m);
+          return true;
+        }
+      }
+
+      // 11. King has received three checks consecutively.
+      for (const owner of [movingColor, opponent]) {
+        const m = missionFor(owner);
+        if (m && m.id === 11 && consecutiveChecks[owner] >= 3) {
+          missionWin(owner, m);
+          return true;
+        }
+      }
+
+      // 12. Four pawns have each advanced at least three squares.
+      for (const owner of [movingColor, opponent]) {
+        const m = missionFor(owner);
+        if (!m || m.id !== 12) continue;
+
+        let advanced = 0;
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            const p = board[r][c];
+            if (!p || p.color !== owner || p.type !== "p") continue;
+
+            const distance = owner === "w"
+              ? p.startRow - r
+              : r - p.startRow;
+
+            if (distance >= 3) advanced++;
+          }
+        }
+
+        if (advanced >= 4) {
+          missionWin(owner, m);
+          return true;
+        }
+      }
+
+      // 1. After losing the queen, check the opposing king within 3 plies.
+      if (
+        queenSacrificePly !== null &&
+        queenSacrificeOwner &&
+        moveHistory.length > queenSacrificePly &&
+        moveHistory.length - queenSacrificePly <= 3
+      ) {
+        const owner = queenSacrificeOwner;
+        const targetKing = opposite(owner);
+        const m = missionFor(owner);
+
+        if (m && m.id === 1 && isKingInCheck(board, targetKing)) {
+          missionWin(owner, m);
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function getPositionKey(b) {
+      const boardPart = b.map(row => row.map(p => p ? p.color + p.type : "-").join("")).join("/");
+      const castling = [
+        b[7][4]?.color === "w" && b[7][4]?.type === "k" && !b[7][4]?.hasMoved && b[7][7]?.color === "w" && b[7][7]?.type === "r" && !b[7][7]?.hasMoved ? "K" : "",
+        b[7][4]?.color === "w" && b[7][4]?.type === "k" && !b[7][4]?.hasMoved && b[7][0]?.color === "w" && b[7][0]?.type === "r" && !b[7][0]?.hasMoved ? "Q" : "",
+        b[0][4]?.color === "b" && b[0][4]?.type === "k" && !b[0][4]?.hasMoved && b[0][7]?.color === "b" && b[0][7]?.type === "r" && !b[0][7]?.hasMoved ? "k" : "",
+        b[0][4]?.color === "b" && b[0][4]?.type === "k" && !b[0][4]?.hasMoved && b[0][0]?.color === "b" && b[0][0]?.type === "r" && !b[0][0]?.hasMoved ? "q" : ""
+      ].join("") || "-";
+      const ep = enPassantTarget ? `${enPassantTarget.r},${enPassantTarget.c}` : "-";
+      return `${boardPart}|${currentTurn}|${castling}|${ep}`;
+    }
+
+    function recordCurrentPosition() {
+      const key = getPositionKey(board);
+      const count = (positionCounts.get(key) || 0) + 1;
+      positionCounts.set(key, count);
+      return count;
+    }
+
+    function showGameResult(title, subtitle, icon) {
+      resultTitle.textContent = title;
+      resultSubtitle.textContent = subtitle;
+      resultIcon.textContent = icon;
+      resultOverlay.classList.remove("show");
+      void resultOverlay.offsetWidth;
+      resultOverlay.classList.add("show");
+    }
+
+    function hideGameResult() { resultOverlay.classList.remove("show"); }
+
+    
+function isInsufficientMaterial(b) {
+  const pieces = [];
+
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const p = b[r][c];
+      if (p && p.type !== "k") {
+        pieces.push({ ...p, r, c });
+      }
+    }
+  }
+
+  // King vs King
+  if (pieces.length === 0) return true;
+
+  // King + single bishop/knight vs King
+  if (pieces.length === 1 &&
+      (pieces[0].type === "b" || pieces[0].type === "n")) {
+    return true;
+  }
+
+  // King + bishop vs King + bishop, with both bishops on the same color squares
+  if (pieces.length === 2 &&
+      pieces[0].type === "b" && pieces[1].type === "b" &&
+      pieces[0].color !== pieces[1].color) {
+    const color1 = (pieces[0].r + pieces[0].c) % 2;
+    const color2 = (pieces[1].r + pieces[1].c) % 2;
+    return color1 === color2;
+  }
+
+  return false;
+}
+
+function finishTurn(targetPiece) {
+      currentTurn = opposite(currentTurn);
+      const inCheck = isKingInCheck(board, currentTurn);
+      const anyMoves = hasAnyLegalMove(board, currentTurn);
+  if (isInsufficientMaterial(board)) {
+    gameOver = true;
+    messageEl.textContent = "무승부! 기물 부족으로 더 이상 체크메이트를 만들 수 없습니다.";
+    render();
+    showGameResult("무승부", "기물 부족", "½");
+    return;
+  }
+
+
+      if (!anyMoves && inCheck) {
+        const winnerColor=currentTurn==='w'?'b':'w';
+        const wm=missionFor(winnerColor);
+        if(wm&&wm.id===9&&trashOpeningDone){missionWin(winnerColor,wm);return;}
+        gameOver = true;
+        const winner = opposite(currentTurn) === "w" ? "백" : "흑";
+        messageEl.textContent = `♚ 체크메이트! ${winner} 승리!`;
+        render();
+        showGameResult(`${winner} 승리!`, "체크메이트", winner === "백" ? "♕" : "♚");
+        return;
+      }
+      if (!anyMoves && !inCheck) {
+        gameOver = true;
+        messageEl.textContent = "무승부! 스테일메이트입니다.";
+        render();
+        showGameResult("무승부", "스테일메이트", "½");
+        return;
+      }
+      if (recordCurrentPosition() >= 3) {
+        gameOver = true;
+        messageEl.textContent = "무승부! 같은 포지션이 3번 반복되었습니다.";
+        render();
+        showGameResult("무승부", "3회 동형 반복", "½");
+        return;
+      }
+      messageEl.textContent = inCheck ? `⚠ ${currentTurn === "w" ? "백" : "흑"} 킹이 체크되었습니다!` : "";
+      updateMissionPanel();
+      render();
+      scheduleAIIfNeeded();
+    }
+
+    function showPromotionChoices(color) {
+      promotionChoices.innerHTML = "";
+
+      for (const type of ["q", "r", "b", "n"]) {
+        const btn = document.createElement("button");
+
+        const img = document.createElement("img");
+        img.src = pieceImages[color][type];
+        img.alt = names[type];
+
+        const label = document.createElement("span");
+        label.textContent = names[type];
+
+        btn.appendChild(img);
+        btn.appendChild(label);
+
+        btn.addEventListener("click", () => choosePromotion(type));
+        promotionChoices.appendChild(btn);
+      }
+
+      promotionOverlay.classList.add("show");
+    }
+
+    function choosePromotion(type) {
+      if (!pendingPromotion) return;
+
+      const { r, c } = pendingPromotion;
+      board[r][c].type = type;
+
+      pendingPromotion = null;
+      promotionOverlay.classList.remove("show");
+
+      messageEl.textContent = `${names[type]}으로 승급했습니다!`;
+      finishTurn(null);
+    }
+
+    /*
+      공격받는지 판정할 때 사용하는 "공격 가능한 칸".
+      여기서는 자기 킹을 보호하는 합법성 검사를 하지 않는다.
+    */
+    function isSquareAttacked(b, r, c, byColor) {
+      const pawnDir = byColor === "w" ? -1 : 1;
+
+      // 폰 공격
+      for (const dc of [-1, 1]) {
+        const pr = r - pawnDir;
+        const pc = c - dc;
+
+        if (
+          inside(pr, pc) &&
+          b[pr][pc] &&
+          b[pr][pc].color === byColor &&
+          b[pr][pc].type === "p"
+        ) {
+          return true;
+        }
+      }
+
+      // 나이트 공격
+      const jumps = [
+        [-2,-1], [-2,1], [-1,-2], [-1,2],
+        [1,-2], [1,2], [2,-1], [2,1]
+      ];
+
+      for (const [dr, dc] of jumps) {
+        const nr = r + dr;
+        const nc = c + dc;
+
+        if (
+          inside(nr, nc) &&
+          b[nr][nc] &&
+          b[nr][nc].color === byColor &&
+          b[nr][nc].type === "n"
+        ) {
+          return true;
+        }
+      }
+
+      // 비숍/퀸 대각선
+      const diagonals = [
+        [-1,-1], [-1,1], [1,-1], [1,1]
+      ];
+
+      for (const [dr, dc] of diagonals) {
+        let nr = r + dr;
+        let nc = c + dc;
+
+        while (inside(nr, nc)) {
+          const piece = b[nr][nc];
+
+          if (piece) {
+            if (
+              piece.color === byColor &&
+              (piece.type === "b" || piece.type === "q")
+            ) {
+              return true;
+            }
+            break;
+          }
+
+          nr += dr;
+          nc += dc;
+        }
+      }
+
+      // 룩/퀸 직선
+      const straight = [
+        [-1,0], [1,0], [0,-1], [0,1]
+      ];
+
+      for (const [dr, dc] of straight) {
+        let nr = r + dr;
+        let nc = c + dc;
+
+        while (inside(nr, nc)) {
+          const piece = b[nr][nc];
+
+          if (piece) {
+            if (
+              piece.color === byColor &&
+              (piece.type === "r" || piece.type === "q")
+            ) {
+              return true;
+            }
+            break;
+          }
+
+          nr += dr;
+          nc += dc;
+        }
+      }
+
+      // 킹 공격
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (!dr && !dc) continue;
+
+          const nr = r + dr;
+          const nc = c + dc;
+
+          if (
+            inside(nr, nc) &&
+            b[nr][nc] &&
+            b[nr][nc].color === byColor &&
+            b[nr][nc].type === "k"
+          ) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    }
+
+    function findKing(b, color) {
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (
+            b[r][c] &&
+            b[r][c].color === color &&
+            b[r][c].type === "k"
+          ) {
+            return { r, c };
+          }
+        }
+      }
+
+      return null;
+    }
+
+    function isKingInCheck(b, color) {
+      const king = findKing(b, color);
+      if (!king) return true;
+      return isSquareAttacked(b, king.r, king.c, opposite(color));
+    }
+
+    /*
+      말 자체의 기본 이동. 체크 여부는 여기서 판단하지 않는다.
+    */
+    function getPseudoMoves(b, r, c, includeSpecial = true) {
+      const piece = b[r][c];
+      if (!piece) return [];
+
+      const moves = [];
+
+      const addStep = (nr, nc, extra = {}) => {
+        if (!inside(nr, nc)) return;
+
+        if (!b[nr][nc]) {
+          moves.push({ r: nr, c: nc, ...extra });
+        } else if (b[nr][nc].color !== piece.color) {
+          // 킹은 상대 킹을 잡는 수를 일반 이동으로 만들지 않는다.
+          if (b[nr][nc].type !== "k") {
+            moves.push({ r: nr, c: nc, ...extra });
+          }
+        }
+      };
+
+      const addRay = (dr, dc) => {
+        let nr = r + dr;
+        let nc = c + dc;
+
+        while (inside(nr, nc)) {
+          if (!b[nr][nc]) {
+            moves.push({ r: nr, c: nc });
+          } else {
+            if (
+              b[nr][nc].color !== piece.color &&
+              b[nr][nc].type !== "k"
+            ) {
+              moves.push({ r: nr, c: nc });
+            }
+            break;
+          }
+
+          nr += dr;
+          nc += dc;
+        }
+      };
+
+      if (piece.type === "p") {
+        const dir = piece.color === "w" ? -1 : 1;
+        const startRow = piece.color === "w" ? 6 : 1;
+
+        if (inside(r + dir, c) && !b[r + dir][c]) {
+          moves.push({ r: r + dir, c });
+
+          if (r === startRow && !b[r + dir * 2][c]) {
+            moves.push({ r: r + dir * 2, c });
+          }
+        }
+
+        // 일반 대각선 잡기
+        for (const dc of [-1, 1]) {
+          const nr = r + dir;
+          const nc = c + dc;
+
+          if (
+            inside(nr, nc) &&
+            b[nr][nc] &&
+            b[nr][nc].color !== piece.color &&
+            b[nr][nc].type !== "k"
+          ) {
+            moves.push({ r: nr, c: nc });
+          }
+        }
+
+        // 앙파상
+        if (
+          includeSpecial &&
+          enPassantTarget &&
+          enPassantTarget.r === r + dir &&
+          Math.abs(enPassantTarget.c - c) === 1 &&
+          !b[enPassantTarget.r][enPassantTarget.c]
+        ) {
+          const adjacent = b[r][enPassantTarget.c];
+
+          if (
+            adjacent &&
+            adjacent.type === "p" &&
+            adjacent.color !== piece.color
+          ) {
+            moves.push({
+              r: enPassantTarget.r,
+              c: enPassantTarget.c,
+              enPassant: true
+            });
+          }
+        }
+      }
+
+      if (piece.type === "n") {
+        const jumps = [
+          [-2,-1], [-2,1], [-1,-2], [-1,2],
+          [1,-2], [1,2], [2,-1], [2,1]
+        ];
+
+        for (const [dr, dc] of jumps) {
+          addStep(r + dr, c + dc);
+        }
+      }
+
+      if (piece.type === "b") {
+        addRay(-1, -1);
+        addRay(-1, 1);
+        addRay(1, -1);
+        addRay(1, 1);
+      }
+
+      if (piece.type === "r") {
+        addRay(-1, 0);
+        addRay(1, 0);
+        addRay(0, -1);
+        addRay(0, 1);
+      }
+
+      if (piece.type === "q") {
+        addRay(-1, -1);
+        addRay(-1, 1);
+        addRay(1, -1);
+        addRay(1, 1);
+        addRay(-1, 0);
+        addRay(1, 0);
+        addRay(0, -1);
+        addRay(0, 1);
+      }
+
+      if (piece.type === "k") {
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (!dr && !dc) continue;
+            addStep(r + dr, c + dc);
+          }
+        }
+
+        // 캐슬링
+        if (includeSpecial && !piece.hasMoved && !isKingInCheck(b, piece.color)) {
+          // 킹사이드: e1/e8 -> g1/g8
+          const row = piece.color === "w" ? 7 : 0;
+          const enemy = opposite(piece.color);
+
+          if (r === row && c === 4) {
+            const rookK = b[row][7];
+
+            if (
+              rookK &&
+              rookK.type === "r" &&
+              rookK.color === piece.color &&
+              !rookK.hasMoved &&
+              !b[row][5] &&
+              !b[row][6] &&
+              !isSquareAttacked(b, row, 5, enemy) &&
+              !isSquareAttacked(b, row, 6, enemy)
+            ) {
+              moves.push({ r: row, c: 6, castle: "king" });
+            }
+
+            // 퀸사이드: e1/e8 -> c1/c8
+            const rookQ = b[row][0];
+
+            if (
+              rookQ &&
+              rookQ.type === "r" &&
+              rookQ.color === piece.color &&
+              !rookQ.hasMoved &&
+              !b[row][1] &&
+              !b[row][2] &&
+              !b[row][3] &&
+              !isSquareAttacked(b, row, 3, enemy) &&
+              !isSquareAttacked(b, row, 2, enemy)
+            ) {
+              moves.push({ r: row, c: 2, castle: "queen" });
+            }
+          }
+        }
+      }
+
+      return moves;
+    }
+
+    function getLegalMoves(b, r, c, includeSpecial = true) {
+      const piece = b[r][c];
+      if (!piece) return [];
+
+      const pseudo = getPseudoMoves(b, r, c, includeSpecial);
+      const legal = [];
+
+      for (const move of pseudo) {
+        const test = cloneBoard(b);
+
+        const moving = test[r][c];
+        test[r][c] = null;
+
+        // 앙파상 테스트
+        if (move.enPassant) {
+          test[r][move.c] = null;
+        }
+
+        test[move.r][move.c] = moving;
+        moving.hasMoved = true;
+
+        // 캐슬링 테스트
+        if (move.castle) {
+          const rookFromC = move.c > c ? 7 : 0;
+          const rookToC = move.c > c ? 5 : 3;
+          const rook = test[r][rookFromC];
+
+          if (rook) {
+            test[r][rookToC] = rook;
+            test[r][rookFromC] = null;
+            rook.hasMoved = true;
+          }
+        }
+
+        if (!isKingInCheck(test, piece.color)) {
+          legal.push(move);
+        }
+      }
+
+      return legal;
+    }
+
+    function hasAnyLegalMove(b, color) {
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (b[r][c] && b[r][c].color === color) {
+            if (getLegalMoves(b, r, c, true).length > 0) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    missionToggleEl.addEventListener("click",()=>{missionVisible=!missionVisible;updateMissionPanel();});
+    resultReset.addEventListener("click", () => resetBtn.click());
+
+    resetBtn.addEventListener("click", () => {
+      board = createInitialBoard();
+      currentTurn = "w";
+      selected = null;
+      legalMoves = [];
+      gameOver = false;
+      choosingAIFirstMove = false;
+      enPassantTarget = null;
+      pendingPromotion = null;
+      positionCounts = new Map();
+      moveHistory=[]; queenSacrificePly=null; queenSacrificeOwner=null; kingCaptures={w:0,b:0}; consecutiveChecks={w:0,b:0}; trashOpeningDone=false;
+      promotionOverlay.classList.remove("show");
+      hideGameResult();
+      if (gameMode === "ai") {
+        aiColor = Math.random() < 0.5 ? "w" : "b";
+        messageEl.textContent = `AI 대전 초기화 완료 · ${aiColor === "w" ? "AI는 백, 당신은 흑" : "AI는 흑, 당신은 백"} · ${aiColor === "w" ? "AI가 먼저 둡니다." : "당신이 먼저 두세요."}`;
+      } else {
+        messageEl.textContent = "";
+      }
+      pickMissions();
+      render();
+      scheduleAIIfNeeded();
+    });
+
+
+    const PIECE_VALUES = { p:100, n:320, b:330, r:500, q:900, k:20000 };
+
+    function allLegalMovesFor(color) {
+      const moves = [];
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const p = board[r][c];
+          if (!p || p.color !== color) continue;
+          const legal = getLegalMoves(board, r, c, true);
+          for (const m of legal) {
+            moves.push({ fromR:r, fromC:c, toR:m.r, toC:m.c, info:m });
+          }
+        }
+      }
+      return moves;
+    }
+
+    function evaluateBoard(color) {
+      let score = 0;
+      for (const row of board) {
+        for (const p of row) {
+          if (!p) continue;
+          const v = PIECE_VALUES[p.type];
+          score += p.color === color ? v : -v;
+        }
+      }
+
+      // Small bonuses for check and advanced pawns.
+      if (isKingInCheck(board, opposite(color))) score += 45;
+      if (isKingInCheck(board, color)) score -= 45;
+
+      return score;
+    }
+
+    function simulateMoveOnBoard(sourceBoard, mv) {
+      const b = cloneBoard(sourceBoard);
+      const p = b[mv.fromR][mv.fromC];
+      if (!p) return b;
+
+      if (mv.info.enPassant) b[mv.fromR][mv.toC] = null;
+      b[mv.toR][mv.toC] = p;
+      b[mv.fromR][mv.fromC] = null;
+      p.hasMoved = true;
+
+      if (mv.info.castle) {
+        const rookFrom = mv.toC > mv.fromC ? 7 : 0;
+        const rookTo = mv.toC > mv.fromC ? 5 : 3;
+        const rook = b[mv.toR][rookFrom];
+        if (rook) {
+          b[mv.toR][rookTo] = rook;
+          b[mv.toR][rookFrom] = null;
+          rook.hasMoved = true;
+        }
+      }
+
+      if (p.type === "p" && (mv.toR === 0 || mv.toR === 7)) p.type = "q";
+      return b;
+    }
+
+    function aiPickMove() {
+      if (trashOpeningActive()) {
+        const expected = getTrashOpeningExpected();
+        if (expected) {
+          const forcedInfo = getLegalMoves(
+            board, expected.fromR, expected.fromC, true
+          ).find(m => m.r === expected.toR && m.c === expected.toC);
+
+          if (forcedInfo) {
+            return {
+              fromR: expected.fromR,
+              fromC: expected.fromC,
+              toR: expected.toR,
+              toC: expected.toC,
+              info: forcedInfo
+            };
+          }
+        }
+      }
+
+      const moves = allLegalMovesFor(aiColor);
+      if (!moves.length) return null;
+
+      if (aiDifficulty === "easy") {
+        return moves[Math.floor(Math.random() * moves.length)];
+      }
+
+      let best = moves[0];
+      let bestScore = -Infinity;
+
+      for (const mv of moves) {
+        const oldBoard = board;
+        board = simulateMoveOnBoard(oldBoard, mv);
+        let score = evaluateBoard(aiColor);
+
+        // Strong bonus for capturing and checking.
+        const captured = oldBoard[mv.info.enPassant ? mv.fromR : mv.toR]?.[mv.info.enPassant ? mv.toC : mv.toC];
+        if (mv.info.enPassant || oldBoard[mv.toR][mv.toC]) score += 35;
+
+        if (aiDifficulty === "hard") {
+          const replies = allLegalMovesFor(opposite(aiColor));
+          let worstReply = Infinity;
+
+          for (const reply of replies.slice(0, 28)) {
+            const beforeReply = board;
+            board = simulateMoveOnBoard(beforeReply, reply);
+            const replyScore = evaluateBoard(aiColor);
+            if (replyScore < worstReply) worstReply = replyScore;
+            board = beforeReply;
+          }
+
+          if (worstReply !== Infinity) score += worstReply * 0.65;
+        }
+
+        board = oldBoard;
+
+        if (score > bestScore || (score === bestScore && Math.random() < 0.25)) {
+          bestScore = score;
+          best = mv;
+        }
+      }
+      return best;
+    }
+
+    function scheduleAIIfNeeded() {
+      if (gameMode !== "ai" || choosingAIFirstMove || gameOver || currentTurn !== aiColor || aiThinking || pendingPromotion) return;
+
+      aiThinking = true;
+      updateMissionPanel();
+
+      const delay = aiDifficulty === "easy" ? 350 : aiDifficulty === "normal" ? 600 : 900;
+
+      setTimeout(() => {
+        if (gameOver || currentTurn !== aiColor) {
+          aiThinking = false;
+          return;
+        }
+
+        const mv = aiPickMove();
+        if (!mv) {
+          aiThinking = false;
+          return;
+        }
+
+        aiThinking = false;
+        makeMove(mv.fromR, mv.fromC, mv.toR, mv.toC, mv.info);
+      }, delay);
+    }
+
+    function startGame(mode, difficulty = "normal") {
+      gameMode = mode;
+      aiDifficulty = difficulty;
+      aiThinking = false;
+      gameOver = false;
+      selected = null;
+      legalMoves = [];
+      pendingPromotion = null;
+      enPassantTarget = null;
+      positionCounts = new Map();
+      moveHistory = [];
+      queenSacrificePly = null;
+      queenSacrificeOwner = null;
+      kingCaptures = {w:0,b:0};
+      consecutiveChecks = {w:0,b:0};
+      trashOpeningDone = false;
+      board = createInitialBoard();
+
+      if (mode === "ai") {
+        aiColor = Math.random() < 0.5 ? "w" : "b"; // 매 대국 AI 색 무작위 지정
+        choosingAIFirstMove = false;
+      } else {
+        aiColor = null;
+        choosingAIFirstMove = false;
+      }
+
+      currentTurn = "w";
+      document.getElementById("mainMenu").style.display = "none";
+      pickMissions();
+      recordCurrentPosition();
+      messageEl.textContent = mode === "ai"
+        ? `🤖 ${aiColor === "w" ? "AI는 백, 당신은 흑 · AI가 먼저 둡니다." : "AI는 흑, 당신은 백 · 당신이 먼저 둡니다."} · 난이도: ${difficulty === "easy" ? "쉬움" : difficulty === "normal" ? "보통" : "어려움"}`
+        : "친선전";
+      render();
+      scheduleAIIfNeeded();
+    }
+
+    
+    document.getElementById("mainMenuBtn").addEventListener("click", () => {
+      gameOver = true;
+      aiThinking = false;
+      document.getElementById("mainMenu").style.display = "flex";
+      document.getElementById("difficultyPanel").classList.add("hidden");
+    });
+
+document.getElementById("friendlyBtn").addEventListener("click", () => {
+      startGame("friendly");
+    });
+
+    document.getElementById("aiBtn").addEventListener("click", () => {
+      document.getElementById("difficultyPanel").classList.toggle("hidden");
+    });
+
+    document.querySelectorAll("[data-difficulty]").forEach(btn => {
+      btn.addEventListener("click", () => startGame("ai", btn.dataset.difficulty));
+    });
+
+    // 메인 메뉴에서 게임 모드를 선택한 뒤 startGame()이 실행됩니다.
+    document.getElementById("mainMenu").style.display = "flex";
+    render();
+  </script>
+</body>
+</html>
